@@ -61,7 +61,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
+				},
+				'chat-user': 'hsl(var(--chat-user))',
+				'chat-ai-a': 'hsl(var(--chat-ai-a))',
+				'chat-ai-b': 'hsl(var(--chat-ai-b))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
