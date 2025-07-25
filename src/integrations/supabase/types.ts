@@ -14,7 +14,115 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_configurations: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          model_a: string
+          model_b: string
+          provider: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          model_a: string
+          model_b: string
+          provider: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          model_a?: string
+          model_b?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          model_type: string
+          session_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          model_type: string
+          session_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          model_type?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          configuration_id: string | null
+          created_at: string
+          id: string
+          is_paused: boolean | null
+          title: string | null
+          turn_count: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          configuration_id?: string | null
+          created_at?: string
+          id?: string
+          is_paused?: boolean | null
+          title?: string | null
+          turn_count?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          configuration_id?: string | null
+          created_at?: string
+          id?: string
+          is_paused?: boolean | null
+          title?: string | null
+          turn_count?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_sessions_configuration_id_fkey"
+            columns: ["configuration_id"]
+            isOneToOne: false
+            referencedRelation: "ai_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
