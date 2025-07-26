@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Play, Pause, MessageSquarePlus, RotateCcw, Download } from 'lucide-react';
 import { SessionState } from '@/lib/socket';
 import { useToast } from '@/hooks/use-toast';
@@ -12,7 +14,7 @@ interface OverseerPanelProps {
   sessionState: SessionState | null;
   onPause: () => void;
   onResume: () => void;
-  onInjectNote: (note: string) => void;
+  onInjectNote: (note: string, targetModel: 'A' | 'B' | 'All') => void;
   onStartNewSession: () => void;
   onExportSession: () => void;
 }
@@ -26,6 +28,7 @@ export const OverseerPanel = ({
   onExportSession,
 }: OverseerPanelProps) => {
   const [note, setNote] = useState('');
+  const [targetModel, setTargetModel] = useState<'A' | 'B' | 'All'>('All');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -34,11 +37,11 @@ export const OverseerPanel = ({
     
     setIsSubmitting(true);
     try {
-      await onInjectNote(note.trim());
+      await onInjectNote(note.trim(), targetModel);
       setNote('');
       toast({
         title: 'Note injected',
-        description: 'Your note has been sent to the AI models.',
+        description: `Your note has been sent to ${targetModel === 'All' ? 'both models' : `Model ${targetModel}`}.`,
       });
     } catch (error) {
       toast({
@@ -156,7 +159,31 @@ export const OverseerPanel = ({
         {/* Note Injection */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-foreground">Inject Context</h3>
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {/* Target Model Selection */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">Send to:</Label>
+              <RadioGroup
+                value={targetModel}
+                onValueChange={(value: 'A' | 'B' | 'All') => setTargetModel(value)}
+                className="flex gap-4"
+                disabled={!sessionState?.isActive}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="A" id="model-a" />
+                  <Label htmlFor="model-a" className="text-sm">Model A</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="B" id="model-b" />
+                  <Label htmlFor="model-b" className="text-sm">Model B</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="All" id="model-all" />
+                  <Label htmlFor="model-all" className="text-sm">Both</Label>
+                </div>
+              </RadioGroup>
+            </div>
+            
             <Textarea
               placeholder="Add context or steering instructions for the AI models..."
               value={note}
@@ -172,7 +199,7 @@ export const OverseerPanel = ({
               disabled={!note.trim() || isSubmitting || !sessionState?.isActive}
             >
               <MessageSquarePlus className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Injecting...' : 'Inject Note'}
+              {isSubmitting ? 'Injecting...' : `Inject to ${targetModel === 'All' ? 'Both Models' : `Model ${targetModel}`}`}
             </Button>
             <p className="text-xs text-muted-foreground">
               Tip: Use Ctrl+Enter to quickly submit your note

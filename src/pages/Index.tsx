@@ -4,11 +4,14 @@ import { Settings, LogOut, History, User } from 'lucide-react';
 import { ChatPanel, Message } from '@/components/ChatPanel';
 import { OverseerPanel } from '@/components/OverseerPanel';
 import { SettingsModal, AIConfig } from '@/components/SettingsModal';
+import { FirstPromptBanner } from '@/components/FirstPromptBanner';
+import { ModelConfigPanel, ModelConfig } from '@/components/ModelConfigPanel';
 import { AIService, ChatSession } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { AI_PROVIDERS } from '@/lib/socket';
 
 interface SessionState {
   sessionId: string;
@@ -25,7 +28,7 @@ const Index = () => {
     A: Message[];
     B: Message[];
   }>({ A: [], B: [] });
-  const [currentMessages, setCurrentMessages] = useState<{
+  const [streamingContent, setStreamingContent] = useState<{
     A: string;
     B: string;
   }>({ A: '', B: '' });
@@ -37,6 +40,13 @@ const Index = () => {
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [hasFirstMessage, setHasFirstMessage] = useState(false);
+  const [isFirstMessageLoading, setIsFirstMessageLoading] = useState(false);
+  
+  // Model configurations for each panel
+  const [modelConfigA, setModelConfigA] = useState<ModelConfig | null>(null);
+  const [modelConfigB, setModelConfigB] = useState<ModelConfig | null>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -136,7 +146,7 @@ const Index = () => {
       
       // Clear previous messages
       setMessages({ A: [], B: [] });
-      setCurrentMessages({ A: '', B: '' });
+      setStreamingContent({ A: '', B: '' });
       setTypingState({ A: false, B: false });
       
       toast({
@@ -186,7 +196,7 @@ const Index = () => {
     }
   }, [currentSession, toast]);
 
-  const handleInjectNote = useCallback(async (note: string) => {
+  const handleInjectNote = useCallback(async (note: string, targetModel: 'A' | 'B' | 'All') => {
     if (!currentSession) return;
     
     try {
@@ -194,12 +204,12 @@ const Index = () => {
       // you'd send this to the AI models as context
       setSessionState(prev => prev ? {
         ...prev,
-        pendingNotes: [...prev.pendingNotes, note]
+        pendingNotes: [...prev.pendingNotes, `${targetModel}: ${note}`]
       } : null);
       
       toast({
         title: 'Note Injected',
-        description: 'Note has been added to the conversation context.',
+        description: `Note has been added to ${targetModel === 'All' ? 'both models' : `Model ${targetModel}`}.`,
       });
     } catch (error) {
       toast({
@@ -247,6 +257,99 @@ const Index = () => {
       });
     }
   }, [currentSession, toast]);
+
+  const handleFirstMessage = useCallback(async (message: string, targetModel: 'A' | 'B') => {
+    const config = targetModel === 'A' ? modelConfigA : modelConfigB;
+    if (!config || !config.provider || !config.apiKey || !config.model) {
+      toast({
+        title: 'Model Not Configured',
+        description: `Please configure Model ${targetModel} before sending messages.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsFirstMessageLoading(true);
+    setTypingState(prev => ({ ...prev, [targetModel]: true }));
+
+    try {
+      // Create a new session if none exists
+      if (!currentSession) {
+        const sessionData = await AIService.startSession({
+          provider: config.provider,
+          apiKey: config.apiKey,
+          modelA: modelConfigA?.model || config.model,
+          modelB: modelConfigB?.model || config.model,
+        });
+        setCurrentSession(sessionData.session);
+        setSessionState({
+          sessionId: sessionData.session.id,
+          turnCount: 0,
+          isPaused: false,
+          pendingNotes: [],
+          isActive: true
+        });
+      }
+
+      // Add user message
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        type: 'user',
+        content: message,
+        timestamp: new Date(),
+        modelType: targetModel
+      };
+
+      setMessages(prev => ({
+        ...prev,
+        [targetModel]: [...prev[targetModel], userMessage]
+      }));
+
+      // Simulate streaming response (in real implementation, this would be from the API)
+      const response = await AIService.sendMessage(
+        currentSession?.id || 'temp',
+        [{ role: 'user', content: message }],
+        targetModel
+      );
+
+      // Simulate streaming
+      const aiResponse = response.response;
+      let currentContent = '';
+      
+      for (let i = 0; i < aiResponse.length; i++) {
+        currentContent += aiResponse[i];
+        setStreamingContent(prev => ({ ...prev, [targetModel]: currentContent }));
+        await new Promise(resolve => setTimeout(resolve, 20)); // Simulate typing delay
+      }
+
+      // Add final AI message
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: aiResponse,
+        timestamp: new Date(),
+        modelType: targetModel
+      };
+
+      setMessages(prev => ({
+        ...prev,
+        [targetModel]: [...prev[targetModel], aiMessage]
+      }));
+
+      setStreamingContent(prev => ({ ...prev, [targetModel]: '' }));
+      setHasFirstMessage(true);
+
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setTypingState(prev => ({ ...prev, [targetModel]: false }));
+      setIsFirstMessageLoading(false);
+    }
+  }, [modelConfigA, modelConfigB, currentSession, toast]);
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -296,39 +399,70 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto p-4 h-[calc(100vh-80px)]">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
-          {/* Chat Panel A */}
-          <div className="lg:col-span-1">
-            <ChatPanel
-              title="Chat Panel 1"
+        <div className="space-y-4 h-full">
+          {/* First Message Banner */}
+          {!hasFirstMessage && (
+            <FirstPromptBanner
+              onSendFirstMessage={handleFirstMessage}
+              isLoading={isFirstMessageLoading}
+            />
+          )}
+
+          {/* Model Configuration Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ModelConfigPanel
+              title="Model Configuration A"
               modelType="A"
-              messages={messages.A}
-              isTyping={typingState.A}
-              currentMessage={currentMessages.A}
+              config={modelConfigA}
+              onConfigChange={setModelConfigA}
             />
-          </div>
-
-          {/* Chat Panel B */}
-          <div className="lg:col-span-1">
-            <ChatPanel
-              title="Chat Panel 2"
+            <ModelConfigPanel
+              title="Model Configuration B"
               modelType="B"
-              messages={messages.B}
-              isTyping={typingState.B}
-              currentMessage={currentMessages.B}
+              config={modelConfigB}
+              onConfigChange={setModelConfigB}
             />
           </div>
 
-          {/* Overseer Panel */}
-          <div className="lg:col-span-1">
-            <OverseerPanel
-              sessionState={sessionState}
-              onPause={handlePause}
-              onResume={handleResume}
-              onInjectNote={handleInjectNote}
-              onStartNewSession={handleStartNewSession}
-              onExportSession={handleExportSession}
-            />
+          {/* Chat and Control Panels */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
+            {/* Chat Panel A */}
+            <div className="lg:col-span-1">
+              <ChatPanel
+                title="Chat Panel A"
+                modelType="A"
+                messages={messages.A}
+                isTyping={typingState.A}
+                streamingContent={streamingContent.A}
+                modelName={modelConfigA ? AI_PROVIDERS.find(p => p.value === modelConfigA.provider)?.models.find(m => m.value === modelConfigA.model)?.label : undefined}
+                isConfigured={!!(modelConfigA?.provider && modelConfigA?.apiKey && modelConfigA?.model)}
+              />
+            </div>
+
+            {/* Chat Panel B */}
+            <div className="lg:col-span-1">
+              <ChatPanel
+                title="Chat Panel B"
+                modelType="B"
+                messages={messages.B}
+                isTyping={typingState.B}
+                streamingContent={streamingContent.B}
+                modelName={modelConfigB ? AI_PROVIDERS.find(p => p.value === modelConfigB.provider)?.models.find(m => m.value === modelConfigB.model)?.label : undefined}
+                isConfigured={!!(modelConfigB?.provider && modelConfigB?.apiKey && modelConfigB?.model)}
+              />
+            </div>
+
+            {/* Overseer Panel */}
+            <div className="lg:col-span-1">
+              <OverseerPanel
+                sessionState={sessionState}
+                onPause={handlePause}
+                onResume={handleResume}
+                onInjectNote={handleInjectNote}
+                onStartNewSession={handleStartNewSession}
+                onExportSession={handleExportSession}
+              />
+            </div>
           </div>
         </div>
       </main>
