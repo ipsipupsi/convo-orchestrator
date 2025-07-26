@@ -87,7 +87,7 @@ export const ChatPanel = ({
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
               >
                 <div className="flex items-start gap-2 max-w-[80%]">
                   {message.type === 'ai' && (
@@ -120,7 +120,7 @@ export const ChatPanel = ({
             
             {/* Streaming content with enhanced animation */}
             {streamingContent && (
-              <div className="flex justify-start">
+              <div className="flex justify-start animate-slide-up">
                 <div className="flex items-start gap-2 max-w-[80%]">
                   <div className={`flex-shrink-0 p-1.5 rounded-full ${
                     modelType === 'A' ? 'bg-chat-ai-a/20 text-chat-ai-a' : 'bg-chat-ai-b/20 text-chat-ai-b'

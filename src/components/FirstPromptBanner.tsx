@@ -22,7 +22,7 @@ export const FirstPromptBanner = ({ onSendFirstMessage, isLoading }: FirstPrompt
   };
 
   return (
-    <Card className="p-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+    <Card className="p-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 animate-fade-in">
       <div className="flex items-start gap-4">
         <div className="p-2 rounded-lg bg-primary/10">
           <MessageSquare className="w-6 h-6 text-primary" />
@@ -34,7 +34,7 @@ export const FirstPromptBanner = ({ onSendFirstMessage, isLoading }: FirstPrompt
               Start Your Conversation
             </h3>
             <p className="text-sm text-muted-foreground">
-              Send the first message to begin your AI steering session. Choose which model should respond first.
+              Send the first message to begin your AI steering session. Choose which model should respond first, or configure both models to compare their responses.
             </p>
           </div>
 
@@ -49,7 +49,7 @@ export const FirstPromptBanner = ({ onSendFirstMessage, isLoading }: FirstPrompt
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Send to:</span>
+                <span className="text-sm text-muted-foreground">Target Model:</span>
                 <div className="flex gap-1">
                   <Button
                     type="button"

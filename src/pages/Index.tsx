@@ -8,6 +8,10 @@ import { FirstPromptBanner } from '@/components/FirstPromptBanner';
 import { ModelConfigPanel, ModelConfig } from '@/components/ModelConfigPanel';
 import { AIService, ChatSession } from '@/lib/api';
 import { supabase } from '@/integrations/supabase/client';
+import { SessionManagement } from '@/components/SessionManagement';
+import { CostTracker } from '@/components/CostTracker';
+import { KeyboardShortcuts, useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
+import { ExportOptions } from '@/components/ExportOptions';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
@@ -43,12 +47,31 @@ const Index = () => {
   const [hasFirstMessage, setHasFirstMessage] = useState(false);
   const [isFirstMessageLoading, setIsFirstMessageLoading] = useState(false);
   
+  // UI state
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  
   // Model configurations for each panel
   const [modelConfigA, setModelConfigA] = useState<ModelConfig | null>(null);
   const [modelConfigB, setModelConfigB] = useState<ModelConfig | null>(null);
   
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    'ctrl+n': () => setIsSettingsOpen(true),
+    'ctrl+o': () => {}, // Will be handled by SessionManagement component
+    'ctrl+e': () => setShowExportOptions(true),
+    'ctrl+p': () => sessionState?.isPaused ? handleResume() : handlePause(),
+    'ctrl+,': () => setIsSettingsOpen(true),
+    'ctrl+/': () => setShowKeyboardShortcuts(true),
+    'escape': () => {
+      setIsSettingsOpen(false);
+      setShowKeyboardShortcuts(false);
+      setShowExportOptions(false);
+    },
+  });
 
   // Auth state management
   useEffect(() => {
@@ -258,6 +281,60 @@ const Index = () => {
     }
   }, [currentSession, toast]);
 
+  const handleSessionSelect = useCallback(async (session: ChatSession) => {
+    try {
+      setCurrentSession(session);
+      setSessionState({
+        sessionId: session.id,
+        turnCount: session.turn_count,
+        isPaused: session.is_paused,
+        pendingNotes: [],
+        isActive: true
+      });
+      
+      // Load messages for the session
+      const sessionMessages = await AIService.getSessionMessages(session.id);
+      const messagesA: Message[] = [];
+      const messagesB: Message[] = [];
+      
+      sessionMessages.forEach(msg => {
+        const message: Message = {
+          id: msg.id,
+          type: msg.model_type === 'user' ? 'user' : 'ai',
+          content: msg.content,
+          timestamp: new Date(msg.created_at),
+          modelType: msg.model_type as 'A' | 'B'
+        };
+        
+        if (msg.model_type === 'A') {
+          messagesA.push(message);
+        } else if (msg.model_type === 'B') {
+          messagesB.push(message);
+        }
+      });
+      
+      setMessages({ A: messagesA, B: messagesB });
+      setHasFirstMessage(messagesA.length > 0 || messagesB.length > 0);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load session.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  const handleSessionDelete = useCallback(async (sessionId: string) => {
+    // In a real implementation, you'd call an API to delete the session
+    // For now, we'll just show a success message
+    return Promise.resolve();
+  }, []);
+
+  const handleSessionExport = useCallback((session: ChatSession) => {
+    setCurrentSession(session);
+    setShowExportOptions(true);
+  }, []);
+
   const handleFirstMessage = useCallback(async (message: string, targetModel: 'A' | 'B') => {
     const config = targetModel === 'A' ? modelConfigA : modelConfigB;
     if (!config || !config.provider || !config.apiKey || !config.model) {
@@ -378,6 +455,21 @@ const Index = () => {
             <Button 
               variant="outline" 
               size="sm" 
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="flex items-center gap-2"
+            >
+              <Keyboard className="w-4 h-4" />
+              Shortcuts
+            </Button>
+            <SessionManagement
+              currentSessionId={currentSession?.id}
+              onSessionSelect={handleSessionSelect}
+              onSessionDelete={handleSessionDelete}
+              onSessionExport={handleSessionExport}
+            />
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={() => setIsSettingsOpen(true)}
               className="flex items-center gap-2"
             >
@@ -452,8 +544,8 @@ const Index = () => {
               />
             </div>
 
-            {/* Overseer Panel */}
-            <div className="lg:col-span-1">
+            {/* Control Panels */}
+            <div className="lg:col-span-1 space-y-4">
               <OverseerPanel
                 sessionState={sessionState}
                 onPause={handlePause}
@@ -461,6 +553,10 @@ const Index = () => {
                 onInjectNote={handleInjectNote}
                 onStartNewSession={handleStartNewSession}
                 onExportSession={handleExportSession}
+              />
+              <CostTracker
+                sessionId={currentSession?.id}
+                isActive={!!sessionState?.isActive}
               />
             </div>
           </div>
@@ -472,6 +568,26 @@ const Index = () => {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onConfigSubmit={handleConfigSubmit}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts
+        isOpen={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
+      />
+
+      {/* Export Options Modal */}
+      <ExportOptions
+        isOpen={showExportOptions}
+        onClose={() => setShowExportOptions(false)}
+        session={currentSession}
+        messages={[...messages.A, ...messages.B].map(msg => ({
+          id: msg.id,
+          session_id: currentSession?.id || '',
+          model_type: msg.modelType || (msg.type === 'user' ? 'user' : 'system'),
+          content: msg.content,
+          created_at: msg.timestamp.toISOString(),
+        }))}
       />
     </div>
   );

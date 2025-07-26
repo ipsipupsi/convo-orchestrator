@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Play, Pause, MessageSquarePlus, RotateCcw, Download } from 'lucide-react';
+import { Play, Pause, MessageSquarePlus, RotateCcw, Download, Target } from 'lucide-react';
 import { SessionState } from '@/lib/socket';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,13 +62,16 @@ export const OverseerPanel = ({
   };
 
   return (
-    <Card className="flex flex-col h-full bg-card border-border">
+    <Card className="bg-card border-border">
       <div className="p-4 border-b border-border">
-        <h2 className="text-lg font-semibold text-foreground">AI Steering Hub</h2>
+        <div className="flex items-center gap-2">
+          <Target className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">AI Steering Hub</h2>
+        </div>
         <p className="text-sm text-muted-foreground">Oversee and control the conversation</p>
       </div>
 
-      <div className="flex-1 p-4 space-y-4">
+      <div className="p-4 space-y-4">
         {/* Session Status */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-foreground">Session Status</h3>
@@ -158,38 +161,41 @@ export const OverseerPanel = ({
 
         {/* Note Injection */}
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-foreground">Inject Context</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-foreground">Inject Context</h3>
+            <Badge variant="outline" className="text-xs">Enhanced</Badge>
+          </div>
           <div className="space-y-3">
             {/* Target Model Selection */}
             <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">Send to:</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Target Model:</Label>
               <RadioGroup
                 value={targetModel}
                 onValueChange={(value: 'A' | 'B' | 'All') => setTargetModel(value)}
-                className="flex gap-4"
+                className="flex gap-6"
                 disabled={!sessionState?.isActive}
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="A" id="model-a" />
-                  <Label htmlFor="model-a" className="text-sm">Model A</Label>
+                  <Label htmlFor="model-a" className="text-sm cursor-pointer">Model A</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="B" id="model-b" />
-                  <Label htmlFor="model-b" className="text-sm">Model B</Label>
+                  <Label htmlFor="model-b" className="text-sm cursor-pointer">Model B</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="All" id="model-all" />
-                  <Label htmlFor="model-all" className="text-sm">Both</Label>
+                  <Label htmlFor="model-all" className="text-sm cursor-pointer">Both</Label>
                 </div>
               </RadioGroup>
             </div>
             
             <Textarea
-              placeholder="Add context or steering instructions for the AI models..."
+              placeholder={`Add context or steering instructions for ${targetModel === 'All' ? 'both models' : `Model ${targetModel}`}...`}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="min-h-[100px] resize-none"
+              className="min-h-[80px] resize-none"
               disabled={!sessionState?.isActive}
             />
             <Button 
@@ -201,7 +207,7 @@ export const OverseerPanel = ({
               <MessageSquarePlus className="w-4 h-4 mr-2" />
               {isSubmitting ? 'Injecting...' : `Inject to ${targetModel === 'All' ? 'Both Models' : `Model ${targetModel}`}`}
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground text-center">
               Tip: Use Ctrl+Enter to quickly submit your note
             </p>
           </div>
@@ -212,12 +218,17 @@ export const OverseerPanel = ({
           <>
             <Separator />
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">Pending Notes</h3>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-foreground">Pending Notes</h3>
+                <Badge variant="secondary" className="text-xs">
+                  {sessionState.pendingNotes.length}
+                </Badge>
+              </div>
+              <div className="space-y-1 max-h-24 overflow-y-auto">
                 {sessionState.pendingNotes.map((pendingNote, index) => (
                   <div 
                     key={index}
-                    className="text-xs p-2 bg-muted rounded border border-border"
+                    className="text-xs p-2 bg-muted/50 rounded border border-border/50"
                   >
                     {pendingNote}
                   </div>
