@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Settings, LogOut, History, User } from 'lucide-react';
+import { Settings, LogOut, History, User, Keyboard } from 'lucide-react';
 import { ChatPanel, Message } from '@/components/ChatPanel';
 import { OverseerPanel } from '@/components/OverseerPanel';
 import { SettingsModal, AIConfig } from '@/components/SettingsModal';
