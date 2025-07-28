@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Key, Bot } from 'lucide-react';
+import { Settings, Key, Bot, Save, Minimize2, Maximize2 } from 'lucide-react';
 import { AI_PROVIDERS, AIProvider } from '@/lib/socket';
 
 export interface ModelConfig {
@@ -33,6 +33,7 @@ export const ModelConfigPanel = ({
   className 
 }: ModelConfigPanelProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(null);
   const [localConfig, setLocalConfig] = useState<ModelConfig>({
     provider: '',
@@ -85,46 +86,80 @@ export const ModelConfigPanel = ({
               Model {modelType}
             </Badge>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
+          <div className="flex gap-1">
+            {isConfigured && !isMinimized && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMinimized(true)}
+                className="text-success hover:text-success/80"
+              >
+                <Save className="w-4 h-4" />
+              </Button>
+            )}
+            {isMinimized ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMinimized(false)}
+                className="text-muted-foreground"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Quick Status */}
-        <div className="space-y-2 mb-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Provider:</span>
-            <span className="font-medium">
-              {selectedProvider?.label || 'Not configured'}
-            </span>
+        {!isMinimized && (
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Provider:</span>
+              <span className="font-medium">
+                {selectedProvider?.label || 'Not configured'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Model:</span>
+              <span className="font-medium">
+                {selectedProvider?.models.find(m => m.value === localConfig.model)?.label || 'Not selected'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">API Key:</span>
+              <span className="flex items-center gap-1">
+                {localConfig.apiKey ? (
+                  <>
+                    <Key className="w-3 h-3 text-success" />
+                    <span className="text-success text-xs">Configured</span>
+                  </>
+                ) : (
+                  <span className="text-destructive text-xs">Missing</span>
+                )}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Model:</span>
-            <span className="font-medium">
-              {selectedProvider?.models.find(m => m.value === localConfig.model)?.label || 'Not selected'}
-            </span>
+        )}
+
+        {/* Minimized view - just show key info */}
+        {isMinimized && isConfigured && (
+          <div className="text-center py-2">
+            <div className="text-sm font-medium text-success">
+              ✓ {selectedProvider?.label} - {selectedProvider?.models.find(m => m.value === localConfig.model)?.label}
+            </div>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">API Key:</span>
-            <span className="flex items-center gap-1">
-              {localConfig.apiKey ? (
-                <>
-                  <Key className="w-3 h-3 text-success" />
-                  <span className="text-success text-xs">Configured</span>
-                </>
-              ) : (
-                <span className="text-destructive text-xs">Missing</span>
-              )}
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* Expanded Configuration */}
-        {isExpanded && (
+        {isExpanded && !isMinimized && (
           <div className="space-y-4 pt-3 border-t border-border">
             {/* Provider Selection */}
             <div className="space-y-2">

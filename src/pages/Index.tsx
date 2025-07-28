@@ -395,30 +395,40 @@ const Index = () => {
   const startAIConversation = useCallback(async (sessionId: string, initialMessage: string, startingModel: 'A' | 'B') => {
     let currentModel = startingModel;
     let conversationHistory: Message[] = [];
+    let isRunning = true;
     
-    // Add initial message
-    const initialMsg: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: initialMessage,
-      timestamp: new Date(),
-      modelType: currentModel
-    };
-    
-    conversationHistory.push(initialMsg);
-    setMessages(prev => ({
-      ...prev,
-      [currentModel]: [...prev[currentModel], initialMsg]
-    }));
+    // Add initial message if provided
+    if (initialMessage.trim()) {
+      const initialMsg: Message = {
+        id: Date.now().toString(),
+        type: 'user',
+        content: initialMessage,
+        timestamp: new Date(),
+        modelType: currentModel
+      };
+      
+      conversationHistory.push(initialMsg);
+      setMessages(prev => ({
+        ...prev,
+        [currentModel]: [...prev[currentModel], initialMsg]
+      }));
+    }
 
     // Continue conversation loop
     const conversationLoop = async () => {
-      if (sessionState?.isPaused) return;
+      if (!isRunning || sessionState?.isPaused) return;
 
       const otherModel = currentModel === 'A' ? 'B' : 'A';
       const config = otherModel === 'A' ? modelConfigA : modelConfigB;
       
-      if (!config) return;
+      if (!config?.provider || !config?.apiKey || !config?.model) {
+        toast({
+          title: 'Configuration Error',
+          description: `Model ${otherModel} is not properly configured.`,
+          variant: 'destructive',
+        });
+        return;
+      }
 
       setTypingState(prev => ({ ...prev, [otherModel]: true }));
 
@@ -426,14 +436,29 @@ const Index = () => {
         // Get conversation context for the responding model
         const context = conversationHistory
           .slice(-10) // Last 10 messages for context
-          .map(msg => ({ role: msg.type === 'user' ? 'user' : 'assistant', content: msg.content }));
+          .map(msg => ({ 
+            role: msg.type === 'user' ? 'user' : 'assistant', 
+            content: msg.content 
+          }));
+
+        // If no context, start with a generic prompt
+        if (context.length === 0) {
+          context.push({ 
+            role: 'user', 
+            content: 'Hello! Let\'s start a conversation. Please introduce yourself and suggest a topic we could discuss together.' 
+          });
+        }
 
         const response = await AIService.sendMessage(sessionId, context, otherModel);
+        
+        if (!response?.response) {
+          throw new Error('No response received from AI service');
+        }
         
         // Simulate streaming
         let currentContent = '';
         for (let i = 0; i < response.response.length; i++) {
-          if (sessionState?.isPaused) break;
+          if (!isRunning || sessionState?.isPaused) break;
           currentContent += response.response[i];
           setStreamingContent(prev => ({ ...prev, [otherModel]: currentContent }));
           await new Promise(resolve => setTimeout(resolve, 30));
@@ -462,17 +487,19 @@ const Index = () => {
 
         // Continue conversation after a brief pause
         setTimeout(() => {
-          if (!sessionState?.isPaused && sessionState?.isActive) {
+          if (isRunning && !sessionState?.isPaused && sessionState?.isActive) {
             conversationLoop();
           }
         }, 2000);
 
-      } catch (error) {
+      } catch (error: any) {
+        console.error('Conversation error:', error);
         toast({
           title: 'Conversation Error',
-          description: 'AI conversation encountered an error.',
+          description: error.message || 'AI conversation encountered an error.',
           variant: 'destructive',
         });
+        isRunning = false;
       } finally {
         setTypingState(prev => ({ ...prev, [otherModel]: false }));
       }
@@ -480,6 +507,11 @@ const Index = () => {
 
     // Start the conversation loop
     setTimeout(conversationLoop, 1000);
+
+    // Return cleanup function
+    return () => {
+      isRunning = false;
+    };
   }, [modelConfigA, modelConfigB, sessionState, toast]);
 
   const handleSignOut = useCallback(async () => {

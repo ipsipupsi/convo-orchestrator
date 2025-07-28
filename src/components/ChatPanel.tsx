@@ -46,7 +46,7 @@ export const ChatPanel = ({
   const chatColorClass = modelType === 'A' ? 'chat-ai-a' : 'chat-ai-b';
 
   return (
-    <Card className="flex flex-col h-full bg-card border-border">
+    <Card className="flex flex-col h-[600px] bg-card border-border">
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
