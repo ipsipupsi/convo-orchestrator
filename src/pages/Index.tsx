@@ -185,7 +185,6 @@ const Index = () => {
     if (!currentSession) return;
     
     try {
-      await AIService.pauseSession(currentSession.id);
       setSessionState(prev => prev ? { ...prev, isPaused: true } : null);
       toast({
         title: 'Session Paused',
@@ -204,8 +203,20 @@ const Index = () => {
     if (!currentSession) return;
     
     try {
-      await AIService.resumeSession(currentSession.id);
       setSessionState(prev => prev ? { ...prev, isPaused: false } : null);
+      
+      // Resume the AI conversation if there are messages
+      if (messages.A.length > 0 || messages.B.length > 0) {
+        const lastMessage = [...messages.A, ...messages.B]
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+          .pop();
+        
+        if (lastMessage) {
+          const nextModel = lastMessage.modelType === 'A' ? 'B' : 'A';
+          startAIConversation(currentSession.id, '', nextModel);
+        }
+      }
+      
       toast({
         title: 'Session Resumed',
         description: 'AI conversation has been resumed.',
@@ -217,7 +228,7 @@ const Index = () => {
         variant: 'destructive',
       });
     }
-  }, [currentSession, toast]);
+  }, [currentSession, messages, toast]);
 
   const handleInjectNote = useCallback(async (note: string, targetModel: 'A' | 'B' | 'All') => {
     if (!currentSession) return;
@@ -336,97 +347,140 @@ const Index = () => {
   }, []);
 
   const handleFirstMessage = useCallback(async (message: string, targetModel: 'A' | 'B') => {
-    const config = targetModel === 'A' ? modelConfigA : modelConfigB;
-    if (!config || !config.provider || !config.apiKey || !config.model) {
+    if (!modelConfigA || !modelConfigB || 
+        !modelConfigA.provider || !modelConfigA.apiKey || !modelConfigA.model ||
+        !modelConfigB.provider || !modelConfigB.apiKey || !modelConfigB.model) {
       toast({
-        title: 'Model Not Configured',
-        description: `Please configure Model ${targetModel} before sending messages.`,
+        title: 'Models Not Configured',
+        description: 'Please configure both Model A and Model B before starting a conversation.',
         variant: 'destructive',
       });
       return;
     }
 
     setIsFirstMessageLoading(true);
-    setTypingState(prev => ({ ...prev, [targetModel]: true }));
 
     try {
-      // Create a new session if none exists
-      if (!currentSession) {
-        const sessionData = await AIService.startSession({
-          provider: config.provider,
-          apiKey: config.apiKey,
-          modelA: modelConfigA?.model || config.model,
-          modelB: modelConfigB?.model || config.model,
-        });
-        setCurrentSession(sessionData.session);
-        setSessionState({
-          sessionId: sessionData.session.id,
-          turnCount: 0,
-          isPaused: false,
-          pendingNotes: [],
-          isActive: true
-        });
-      }
+      // Create a new session
+      const sessionData = await AIService.startSession({
+        provider: modelConfigA.provider,
+        apiKey: modelConfigA.apiKey,
+        modelA: modelConfigA.model,
+        modelB: modelConfigB.model,
+      });
+      setCurrentSession(sessionData.session);
+      setSessionState({
+        sessionId: sessionData.session.id,
+        turnCount: 0,
+        isPaused: false,
+        pendingNotes: [],
+        isActive: true
+      });
 
-      // Add user message
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        type: 'user',
-        content: message,
-        timestamp: new Date(),
-        modelType: targetModel
-      };
-
-      setMessages(prev => ({
-        ...prev,
-        [targetModel]: [...prev[targetModel], userMessage]
-      }));
-
-      // Simulate streaming response (in real implementation, this would be from the API)
-      const response = await AIService.sendMessage(
-        currentSession?.id || 'temp',
-        [{ role: 'user', content: message }],
-        targetModel
-      );
-
-      // Simulate streaming
-      const aiResponse = response.response;
-      let currentContent = '';
-      
-      for (let i = 0; i < aiResponse.length; i++) {
-        currentContent += aiResponse[i];
-        setStreamingContent(prev => ({ ...prev, [targetModel]: currentContent }));
-        await new Promise(resolve => setTimeout(resolve, 20)); // Simulate typing delay
-      }
-
-      // Add final AI message
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: aiResponse,
-        timestamp: new Date(),
-        modelType: targetModel
-      };
-
-      setMessages(prev => ({
-        ...prev,
-        [targetModel]: [...prev[targetModel], aiMessage]
-      }));
-
-      setStreamingContent(prev => ({ ...prev, [targetModel]: '' }));
+      // Start the AI-to-AI conversation with the initial message
+      startAIConversation(sessionData.session.id, message, targetModel);
       setHasFirstMessage(true);
 
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to send message. Please try again.',
+        description: 'Failed to start conversation. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setTypingState(prev => ({ ...prev, [targetModel]: false }));
       setIsFirstMessageLoading(false);
     }
-  }, [modelConfigA, modelConfigB, currentSession, toast]);
+  }, [modelConfigA, modelConfigB, toast]);
+
+  const startAIConversation = useCallback(async (sessionId: string, initialMessage: string, startingModel: 'A' | 'B') => {
+    let currentModel = startingModel;
+    let conversationHistory: Message[] = [];
+    
+    // Add initial message
+    const initialMsg: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: initialMessage,
+      timestamp: new Date(),
+      modelType: currentModel
+    };
+    
+    conversationHistory.push(initialMsg);
+    setMessages(prev => ({
+      ...prev,
+      [currentModel]: [...prev[currentModel], initialMsg]
+    }));
+
+    // Continue conversation loop
+    const conversationLoop = async () => {
+      if (sessionState?.isPaused) return;
+
+      const otherModel = currentModel === 'A' ? 'B' : 'A';
+      const config = otherModel === 'A' ? modelConfigA : modelConfigB;
+      
+      if (!config) return;
+
+      setTypingState(prev => ({ ...prev, [otherModel]: true }));
+
+      try {
+        // Get conversation context for the responding model
+        const context = conversationHistory
+          .slice(-10) // Last 10 messages for context
+          .map(msg => ({ role: msg.type === 'user' ? 'user' : 'assistant', content: msg.content }));
+
+        const response = await AIService.sendMessage(sessionId, context, otherModel);
+        
+        // Simulate streaming
+        let currentContent = '';
+        for (let i = 0; i < response.response.length; i++) {
+          if (sessionState?.isPaused) break;
+          currentContent += response.response[i];
+          setStreamingContent(prev => ({ ...prev, [otherModel]: currentContent }));
+          await new Promise(resolve => setTimeout(resolve, 30));
+        }
+
+        // Add AI response
+        const aiMessage: Message = {
+          id: Date.now().toString(),
+          type: 'ai',
+          content: response.response,
+          timestamp: new Date(),
+          modelType: otherModel
+        };
+
+        conversationHistory.push(aiMessage);
+        setMessages(prev => ({
+          ...prev,
+          [otherModel]: [...prev[otherModel], aiMessage]
+        }));
+        setStreamingContent(prev => ({ ...prev, [otherModel]: '' }));
+
+        // Update turn count
+        setSessionState(prev => prev ? { ...prev, turnCount: prev.turnCount + 1 } : null);
+
+        currentModel = otherModel;
+
+        // Continue conversation after a brief pause
+        setTimeout(() => {
+          if (!sessionState?.isPaused && sessionState?.isActive) {
+            conversationLoop();
+          }
+        }, 2000);
+
+      } catch (error) {
+        toast({
+          title: 'Conversation Error',
+          description: 'AI conversation encountered an error.',
+          variant: 'destructive',
+        });
+      } finally {
+        setTypingState(prev => ({ ...prev, [otherModel]: false }));
+      }
+    };
+
+    // Start the conversation loop
+    setTimeout(conversationLoop, 1000);
+  }, [modelConfigA, modelConfigB, sessionState, toast]);
 
   const handleSignOut = useCallback(async () => {
     await supabase.auth.signOut();
@@ -557,6 +611,7 @@ const Index = () => {
               <CostTracker
                 sessionId={currentSession?.id}
                 isActive={!!sessionState?.isActive}
+                isPaused={!!sessionState?.isPaused}
               />
             </div>
           </div>

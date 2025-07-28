@@ -29,9 +29,10 @@ interface CostData {
 interface CostTrackerProps {
   sessionId?: string;
   isActive: boolean;
+  isPaused?: boolean;
 }
 
-export const CostTracker = ({ sessionId, isActive }: CostTrackerProps) => {
+export const CostTracker = ({ sessionId, isActive, isPaused = false }: CostTrackerProps) => {
   const [costData, setCostData] = useState<CostData>({
     totalCost: 0,
     sessionCost: 0,
@@ -58,7 +59,7 @@ export const CostTracker = ({ sessionId, isActive }: CostTrackerProps) => {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (sessionStartTime && isActive) {
+    if (sessionStartTime && isActive && !isPaused) {
       interval = setInterval(() => {
         setElapsedTime(Date.now() - sessionStartTime.getTime());
       }, 1000);
@@ -67,7 +68,7 @@ export const CostTracker = ({ sessionId, isActive }: CostTrackerProps) => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [sessionStartTime, isActive]);
+  }, [sessionStartTime, isActive, isPaused]);
 
   // Simulate cost tracking updates (in real implementation, this would come from API calls)
   useEffect(() => {
