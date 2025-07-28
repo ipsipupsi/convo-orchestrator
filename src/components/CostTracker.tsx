@@ -116,22 +116,22 @@ export const CostTracker = ({ sessionId, isActive, isPaused = false }: CostTrack
 
   return (
     <Card className="h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Activity className="w-5 h-5" />
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Activity className="w-4 h-4" />
           Cost & Performance
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {/* Session Overview */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <DollarSign className="w-3 h-3" />
-              Session Cost
+              Cost
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-sm font-semibold">
               {formatCurrency(costData.sessionCost)}
             </div>
           </div>
@@ -139,22 +139,20 @@ export const CostTracker = ({ sessionId, isActive, isPaused = false }: CostTrack
           <div className="space-y-1">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Timer className="w-3 h-3" />
-              Duration
+              Time
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-sm font-semibold">
               {formatTime(elapsedTime)}
             </div>
           </div>
         </div>
 
-        <Separator />
-
         {/* Performance Metrics */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
-              Avg Latency
+              Latency
             </div>
             <Badge variant="outline" className="text-xs">
               {formatLatency(costData.averageLatency)}
@@ -162,7 +160,7 @@ export const CostTracker = ({ sessionId, isActive, isPaused = false }: CostTrack
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Zap className="w-3 h-3" />
               Requests
             </div>
@@ -170,62 +168,13 @@ export const CostTracker = ({ sessionId, isActive, isPaused = false }: CostTrack
               {costData.requestCount}
             </Badge>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <TrendingUp className="w-3 h-3" />
-              Tokens Used
-            </div>
-            <Badge variant="outline" className="text-xs">
-              {costData.tokensUsed.toLocaleString()}
-            </Badge>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Model Comparison */}
-        <div className="space-y-3">
-          <h4 className="text-sm font-medium">Model Performance</h4>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-chat-ai-a">Model A</span>
-              <div className="flex items-center gap-2">
-                <span>{formatLatency(costData.modelALatency)}</span>
-                <span className="text-muted-foreground">
-                  {formatCurrency(costData.modelACost)}
-                </span>
-              </div>
-            </div>
-            <Progress 
-              value={(costData.modelARequests / Math.max(costData.requestCount, 1)) * 100} 
-              className="h-1"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-chat-ai-b">Model B</span>
-              <div className="flex items-center gap-2">
-                <span>{formatLatency(costData.modelBLatency)}</span>
-                <span className="text-muted-foreground">
-                  {formatCurrency(costData.modelBCost)}
-                </span>
-              </div>
-            </div>
-            <Progress 
-              value={(costData.modelBRequests / Math.max(costData.requestCount, 1)) * 100} 
-              className="h-1"
-            />
-          </div>
         </div>
 
         {/* Status Indicator */}
-        <div className="flex items-center justify-center pt-2">
+        <div className="flex items-center justify-center pt-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-success animate-pulse' : 'bg-muted'}`}></div>
-            {isActive ? 'Tracking Active' : 'Session Inactive'}
+            {isActive ? 'Active' : 'Inactive'}
           </div>
         </div>
       </CardContent>

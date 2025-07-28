@@ -116,14 +116,13 @@ export const AI_PROVIDERS: AIProvider[] = [
     value: 'openrouter',
     label: 'OpenRouter',
     models: [
-      // Latest models
-      { value: 'qwen/qwen-3-coder-32b-instruct:free', label: 'Qwen 3 Coder 32B (FREE)' },
-      { value: 'moonshot/kimi-k2-large', label: 'Kimi K2 Large (FREE)' },
-      { value: 'deepseek/deepseek-r1:free', label: 'DeepSeek R1 (FREE)' },
+      // Latest models (verified working)
       { value: 'google/gemini-2.0-flash-exp:free', label: 'Gemini 2.0 Flash (FREE)' },
       { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (FREE)' },
       { value: 'qwen/qwen-2.5-coder-32b-instruct:free', label: 'Qwen 2.5 Coder 32B (FREE)' },
       { value: 'huggingfaceh4/zephyr-7b-beta:free', label: 'Zephyr 7B Beta (FREE)' },
+      { value: 'meta-llama/llama-3.2-3b-instruct:free', label: 'Llama 3.2 3B (FREE)' },
+      { value: 'microsoft/phi-3-medium-128k-instruct:free', label: 'Phi-3 Medium (FREE)' },
       // Premium models
       { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
       { value: 'openai/gpt-4o', label: 'GPT-4o' },
